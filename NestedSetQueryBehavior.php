@@ -7,7 +7,13 @@
 
 namespace wbraganca\behaviors;
 
+use Yii;
 use yii\base\Behavior;
+use yii\helpers\Html;
+use kartik\icons\Icon;
+use yii\helpers\Url;
+
+use infoweb\catalogue\models\Category;
 
 /**
  * @author Wanderson Bragança <wanderson.wbc@gmail.com>
@@ -72,6 +78,110 @@ class NestedSetQueryBehavior extends Behavior
         return $res;
     }
 
+    public function sortableTree($root = 1, $level = null)
+    {
+        $categories = Category::find()->where("id <> 1")->addOrderBy('lft')->all();
+
+        $newLine = "\n";
+
+        $res = Html::beginTag('div', ['class' => 'dd', 'id' => 'sortable']) . $newLine;
+
+        foreach ($categories as $n => $category)
+        {
+            if ($category->level == $level) {
+                $res .= Html::endTag('li') . $newLine;
+            } elseif ($category->level > $level) {
+                $res .= Html::beginTag('ol', ['class' => 'dd-list', 'data-level' => $category->level - 1]) . $newLine;
+            } else {
+                $res .= Html::endTag('li') . $newLine;
+
+                for ($i = $level - $category->level; $i; $i--) {
+                    $res .= Html::endTag('ol') . $newLine;
+                    $res .= Html::endTag('li') . $newLine;
+                }
+            }
+
+            $res .= Html::beginTag('li', ['class' => 'dd-item', 'data-category' => $category->id]) . $newLine;
+
+            //$res .= Html::beginTag('div', ['class' => (($n%2==0) ? 'odd' : 'even') /*, 'style' => 'padding-left: ' . (30 * ($category->level - 1)) . 'px'*/]);
+
+            $res .= Html::beginTag('div', ['class' => 'dd-handle']);
+            $res .= Icon::show('arrows', ['class' => 'fa-fw']);
+            $res .= Html::endTag('div') . $newLine;
+
+            $res .= Html::beginTag('div', ['class' => 'dd-content' . (($n%2==0) ? ' odd' : ' even')]);
+            $res .= Html::encode($category->name);
+
+            $res .= Html::beginTag('span', ['class' => 'action-buttons']);
+            $res .= Html::a(Html::tag('span', '', ['class' => 'glyphicon glyphicon-pencil']), Url::toRoute(['update', 'id' => $category->id]), [
+                'data-toggle' => 'tooltip',
+                'title' => Yii::t('ecommerce', 'Update'),
+                'data-pjax' => 0
+            ]);
+            $res .= Html::a(Html::tag('span', '', ['class' => 'glyphicon glyphicon-trash']), Url::toRoute(['delete', 'id' => $category->id]), [
+                'data-toggle' => 'tooltip',
+                'title' => Yii::t('ecommerce', 'Delete'),
+                'data-id' => "delete-{$category->id}",
+                'data-pjax' => 0,
+                'data-method' => 'post',
+                'data-confirm' => Yii::t('ecommerce', 'Are you sure you want to delete this item?'),
+            ]);
+            $res .= Html::a(Html::tag('span', '', ['class' => 'glyphicon glyphicon-eye-' . (($category->active == 1) ? 'open' : 'close')]), '#', [
+                'data-toggle' => 'tooltip',
+                'title' => Yii::t('ecommerce', 'Toggle active'),
+                'data-pjax' => 0,
+                'data-toggle-active-category' => $category->id,
+            ]);
+
+            $res .= Html::endTag('span');
+
+            $children = $category->descendants()->count();
+            if ($children > 0) {
+                $res .= Html::tag('span', " ({$children})", ['class' => 'children']) ;
+            }
+
+            $res .= Html::endTag('div') . $newLine;
+
+            //$res .= Html::endTag('div') . $newLine;
+
+            $level = $category->level;
+        }
+
+        for ($i = $level; $i; $i--) {
+            $res .= Html::endTag('li') . $newLine;
+            $res .= Html::endTag('ol') . $newLine;
+        }
+
+        $res .= Html::endTag('div');
+
+        return $res;
+
+    }
+
+    public function dropDownList($root = 0)
+    {
+        $root = Category::findOne($root);
+        $categories = Category::find()->where("root = {$root->id} || root = {$root->root}")->addOrderBy('lft')->all();
+
+        $result = [];
+
+        foreach ($categories as $n => $category) {
+
+            $arrow = '';
+
+            if ($category->level > 0) {
+
+                $arrow = str_repeat("—", $category->{$root->levelAttribute});
+                $arrow .= "> ";
+            }
+
+            $result[$category->id] = $arrow . $category->name;
+        }
+
+        return $result;
+
+    }
+
     public function dataFancytree($root = 0, $level = null)
     {
         $data = array_values($this->prepareData2Fancytree($root, $level));
@@ -84,7 +194,7 @@ class NestedSetQueryBehavior extends Behavior
         if (is_object($root)) {
             $res[$root->{$root->idAttribute}] = [
                 'key' => $root->{$root->idAttribute},
-                'title' => $root->{$root->titleAttribute}
+                'name' => $root->{$root->titleAttribute}
             ];
 
             if ($level) {

@@ -165,6 +165,30 @@ class NestedSetBehavior extends Behavior
     }
 
     /**
+     * Get disabled items for parent dropdown
+     *
+     * @param null $root
+     * @return mixed
+     */
+    public function disabled() {
+
+        $results = [];
+
+        if (!$this->owner->getIsNewRecord()) {
+
+            $children = $this->owner->descendants()->all();
+
+            $results[$this->owner->id] = ['disabled' => true];
+
+            foreach ($children as $n => $child) {
+                $results[$child->id] = ['disabled' => true];
+            }
+        }
+
+        return $results;
+    }
+
+    /**
      * Gets parent of node.
      * @return ActiveQuery.
      */
