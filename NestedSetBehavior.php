@@ -687,6 +687,7 @@ class NestedSetBehavior extends Behavior
         if ($this->_ignoreEvent) {
             return true;
         } else {
+            // @todo find a better solutions to update the active state
             //throw new Exception('You should not use ActiveRecord::save() or ActiveRecord::update() methods when NestedSet behavior attached.');
         }
     }

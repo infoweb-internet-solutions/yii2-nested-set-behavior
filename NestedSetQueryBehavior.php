@@ -13,8 +13,6 @@ use yii\helpers\Html;
 use kartik\icons\Icon;
 use yii\helpers\Url;
 
-use infoweb\catalogue\models\Category;
-
 /**
  * @author Wanderson Bragança <wanderson.wbc@gmail.com>
  */
@@ -80,62 +78,65 @@ class NestedSetQueryBehavior extends Behavior
 
     public function sortableTree($root = 1, $level = null)
     {
-        $categories = Category::find()->where("id <> 1")->addOrderBy('lft')->all();
+        $modelClass = $this->owner->modelClass;
+        $model = new $modelClass;
+
+        $terms = $model::find()->where("id <> 1")->addOrderBy('lft')->all();
 
         $newLine = "\n";
 
         $res = Html::beginTag('div', ['class' => 'dd', 'id' => 'sortable']) . $newLine;
 
-        foreach ($categories as $n => $category)
+        foreach ($terms as $n => $term)
         {
-            if ($category->level == $level) {
+            if ($term->level == $level) {
                 $res .= Html::endTag('li') . $newLine;
-            } elseif ($category->level > $level) {
-                $res .= Html::beginTag('ol', ['class' => 'dd-list', 'data-level' => $category->level - 1]) . $newLine;
+            } elseif ($term->level > $level) {
+                $res .= Html::beginTag('ol', ['class' => 'dd-list', 'data-level' => $term->level - 1]) . $newLine;
             } else {
                 $res .= Html::endTag('li') . $newLine;
 
-                for ($i = $level - $category->level; $i; $i--) {
+                for ($i = $level - $term->level; $i; $i--) {
                     $res .= Html::endTag('ol') . $newLine;
                     $res .= Html::endTag('li') . $newLine;
                 }
             }
 
-            $res .= Html::beginTag('li', ['class' => 'dd-item', 'data-category' => $category->id]) . $newLine;
+            $res .= Html::beginTag('li', ['class' => 'dd-item', 'data-term' => $term->id]) . $newLine;
 
-            //$res .= Html::beginTag('div', ['class' => (($n%2==0) ? 'odd' : 'even') /*, 'style' => 'padding-left: ' . (30 * ($category->level - 1)) . 'px'*/]);
+            //$res .= Html::beginTag('div', ['class' => (($n%2==0) ? 'odd' : 'even') /*, 'style' => 'padding-left: ' . (30 * ($model->level - 1)) . 'px'*/]);
 
             $res .= Html::beginTag('div', ['class' => 'dd-handle']);
             $res .= Icon::show('arrows', ['class' => 'fa-fw']);
             $res .= Html::endTag('div') . $newLine;
 
             $res .= Html::beginTag('div', ['class' => 'dd-content' . (($n%2==0) ? ' odd' : ' even')]);
-            $res .= Html::encode($category->name);
+            $res .= Html::encode($term->name);
 
             $res .= Html::beginTag('span', ['class' => 'action-buttons']);
-            $res .= Html::a(Html::tag('span', '', ['class' => 'glyphicon glyphicon-pencil']), Url::toRoute(['update', 'id' => $category->id]), [
+            $res .= Html::a(Html::tag('span', '', ['class' => 'glyphicon glyphicon-pencil']), Url::toRoute(['update', 'id' => $term->id]), [
                 'data-toggle' => 'tooltip',
                 'title' => Yii::t('ecommerce', 'Update'),
                 'data-pjax' => 0
             ]);
-            $res .= Html::a(Html::tag('span', '', ['class' => 'glyphicon glyphicon-trash']), Url::toRoute(['delete', 'id' => $category->id]), [
+            $res .= Html::a(Html::tag('span', '', ['class' => 'glyphicon glyphicon-trash']), Url::toRoute(['delete', 'id' => $term->id]), [
                 'data-toggle' => 'tooltip',
                 'title' => Yii::t('ecommerce', 'Delete'),
-                'data-id' => "delete-{$category->id}",
+                'data-id' => "delete-{$term->id}",
                 'data-pjax' => 0,
                 'data-method' => 'post',
                 'data-confirm' => Yii::t('ecommerce', 'Are you sure you want to delete this item?'),
             ]);
-            $res .= Html::a(Html::tag('span', '', ['class' => 'glyphicon glyphicon-eye-' . (($category->active == 1) ? 'open' : 'close')]), '#', [
+            $res .= Html::a(Html::tag('span', '', ['class' => 'glyphicon glyphicon-eye-' . (($term->active == 1) ? 'open' : 'close')]), '#', [
                 'data-toggle' => 'tooltip',
                 'title' => Yii::t('ecommerce', 'Toggle active'),
                 'data-pjax' => 0,
-                'data-toggle-active-category' => $category->id,
+                'data-toggle-active-term' => $term->id,
             ]);
 
             $res .= Html::endTag('span');
 
-            $children = $category->descendants()->count();
+            $children = $term->descendants()->count();
             if ($children > 0) {
                 $res .= Html::tag('span', " ({$children})", ['class' => 'children']) ;
             }
@@ -144,7 +145,7 @@ class NestedSetQueryBehavior extends Behavior
 
             //$res .= Html::endTag('div') . $newLine;
 
-            $level = $category->level;
+            $level = $term->level;
         }
 
         for ($i = $level; $i; $i--) {
@@ -160,22 +161,25 @@ class NestedSetQueryBehavior extends Behavior
 
     public function dropDownList($root = 0)
     {
-        $root = Category::findOne($root);
-        $categories = Category::find()->where("root = {$root->id} || root = {$root->root}")->addOrderBy('lft')->all();
+        $modelClass = $this->owner->modelClass;
+        $model = new $modelClass;
+
+        $root = $model::findOne($root);
+        $terms = $model::find()->where("root = {$root->id} || root = {$root->root}")->addOrderBy('lft')->all();
 
         $result = [];
 
-        foreach ($categories as $n => $category) {
+        foreach ($terms as $n => $term) {
 
             $arrow = '';
 
-            if ($category->level > 0) {
+            if ($term->level > 0) {
 
-                $arrow = str_repeat("—", $category->{$root->levelAttribute});
+                $arrow = str_repeat("—", $term->{$root->levelAttribute});
                 $arrow .= "> ";
             }
 
-            $result[$category->id] = $arrow . $category->name;
+            $result[$term->id] = $arrow . $term->name;
         }
 
         return $result;
